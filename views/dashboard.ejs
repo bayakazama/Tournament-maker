@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+        .dashboard-container {
+            max-width: 400px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 24px;
+            text-align: center;
+        }
+        .avatar {
+            border-radius: 50%;
+            width: 100px;
+            height: 100px;
+            margin-bottom: 16px;
+        }
+        h1 {
+            margin-bottom: 8px;
+        }
+        .username {
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <img class="avatar" src="https://cdn.discordapp.com/avatars/<%= user.discordId %>/<%= user.avatar %>.webp?size=300" alt="Avatar">
+        <h1>Welcome!</h1>
+        <div class="username">Hello, <%= user.username %>!</div>
+        <p>This is your dashboard.</p>
+    </div>
+</body>
+</html></div>

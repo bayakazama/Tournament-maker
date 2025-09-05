@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tournament API - Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/styles/css/main.min.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="nav-title">Tournament API</a>
+            <div class="nav-links">
+                <a href="/tournaments">Tournaments</a>
+                <% if (user) { %>
+                    <span class="nav-user">Hello, <%= user.username %></span>
+                    <a href="/auth/logout">Logout</a>
+                <% } else { %>
+                    <a href="/auth">Login</a>
+                <% } %>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <h1>Welcome to Tournament API</h1>
+        <p>This is the homepage for your tournament management application.</p>
+        <a href="/tournaments" class="button">View Tournaments</a>
+    </div>
+</body>
+</html>
