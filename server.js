@@ -16,7 +16,10 @@ app.use(session({
     saveUninitialized: false,
 }));
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // Vite's default port
+  credentials: true
+}));
 app.use(express.json());
 app.use(passport.initialize()); // use passport middleware
 app.use(passport.session()); // use passport session
@@ -28,6 +31,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use("/dashboard", require("./routes/dashboard.routes")); // Dashboard route
 app.use("/", require("./routes/index.routes")); 
 app.use("/api", require("./routes/api.routes")); // API routes
+app.use("/api/brackets", require("./routes/brackets.routes")); // Bracket routes
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server is running on this port: ${PORT}`));

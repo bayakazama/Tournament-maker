@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
+const bracketRoutes = require('./brackets.routes');
+
+// Use brackets routes
+router.use('/', bracketRoutes);
 
 router.get('/', (req, res) => {
     res.render('index', { user: req.user });
@@ -8,7 +12,7 @@ router.get('/', (req, res) => {
 
 router.get('/login', passport.authenticate('discord'));
 
-// simple route for testing
+
 router.get('/callback', passport.authenticate('discord', { 
     failureRedirect: '/',
     successRedirect: '/dashboard',

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tournament - <%= tournament.name %></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/styles/css/main.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/brackets-viewer@latest/dist/brackets-viewer.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/brackets-viewer@latest/dist/brackets-viewer.min.js"></script>
+    <style>
+        .tournament-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tournament-header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #eee;
+        }
+        .tournament-details {
+            margin-bottom: 32px;
+        }
+        .bracket-container {
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+        .match {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px;
+            margin: 4px 0;
+        }
+        .match-player {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+        }
+        .match-player.winner {
+            background: #e9ecef;
+            font-weight: bold;
+        }
+        .participants-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .participant-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .participant-item:last-child {
+            border-bottom: none;
+        }
+        .participant-item button {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .participant-item:hover button {
+            opacity: 1;
+        }
+        .bracket-container {
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .empty-bracket-message {
+            color: #6c757d;
+            text-align: center;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/nav') %>
+    
+    <div class="tournament-container">
+        <div class="tournament-header">
+            <h1><%= tournament.name %></h1>
+            <p><%= tournament.description %></p>
+        </div>
+
+        <div class="tournament-details">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Status:</strong> <%= tournament.status %></p>
+                    <p><strong>Start Date:</strong> <%= new Date(tournament.startDate).toLocaleDateString() %></p>
+                    <% if (tournament.endDate) { %>
+                        <p><strong>End Date:</strong> <%= new Date(tournament.endDate).toLocaleDateString() %></p>
+                    <% } %>
+                    <p><strong>Created by:</strong> <%= tournament.creator.username %></p>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Participants (<%= tournament.participants.length %>/<%= tournament.maxParticipants || '∞' %>)</h5>
+                            <% if (tournament.status === 'pending' && (!tournament.maxParticipants || tournament.participants.length < tournament.maxParticipants)) { %>
+                                <button class="btn btn-primary btn-sm" onclick="joinTournament()">Join Tournament</button>
+                            <% } %>
+                        </div>
+                        <div class="card-body">
+                            <div class="participants-list">
+                                <% tournament.participants.forEach((participant, index) => { %>
+                                    <div class="participant-item d-flex justify-content-between align-items-center mb-2">
+                                        <span><%= index + 1 %>. <%= participant.name %></span>
+                                        <% if (tournament.status === 'pending' && (user._id.toString() === participant.userId.toString() || user._id.toString() === tournament.creator._id.toString())) { %>
+                                            <button class="btn btn-danger btn-sm" onclick="removeParticipant('<%= participant.userId %>')">Remove</button>
+                                        <% } %>
+                                    </div>
+                                <% }); %>
+                                <% if (tournament.participants.length === 0) { %>
+                                    <p class="text-muted">No participants yet</p>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bracket-container" id="bracketDisplay"></div>
+    </div>
+
+    <script>
+        class TournamentManager {
+            constructor(tournamentId, isCreator) {
+                this.tournamentId = tournamentId;
+                this.isCreator = isCreator;
+                this.bracketContainer = document.getElementById('bracketDisplay');
+            }
+
+            async fetchBracketData() {
+                const response = await fetch(`/api/tournaments/${this.tournamentId}/bracket`);
+                if (!response.ok) throw new Error('Failed to fetch bracket data');
+                return await response.json();
+            }
+
+            async updateBracket() {
+                try {
+                    let data = await this.fetchBracketData();
+                    
+                    // If there's no stage data (empty tournament), create a dummy structure
+                    if (!data.stage) {
+                        const participants = JSON.parse('<%= JSON.stringify(tournament.participants) %>');
+                        const participantCount = participants.length;
+                        const roundCount = Math.ceil(Math.log2(Math.max(2, participantCount)));
+                        
+                        // Create empty bracket structure
+                        data = {
+                            stage: {
+                                name: '<%= tournament.name %>',
+                                type: 'single_elimination',
+                                number: 1,
+                                settings: { seedOrdering: ['natural'] }
+                            },
+                            matches: [],
+                            matchGames: [],
+                            participants: participants.map((p, i) => ({
+                                id: p.userId,
+                                name: p.name,
+                                seed: i + 1
+                            }))
+                        };
+
+                        // Create empty rounds with placeholder matches
+                        for (let round = 1; round <= roundCount; round++) {
+                            const matchesInRound = Math.pow(2, roundCount - round);
+                            for (let match = 0; match < matchesInRound; match++) {
+                                data.matches.push({
+                                    id: `r${round}m${match}`,
+                                    number: match + 1,
+                                    round: round,
+                                    opponent1: { id: null, score: null },
+                                    opponent2: { id: null, score: null }
+                                });
+                            }
+                        }
+                    }
+
+                    // If there are no participants yet, show a message
+                    if (data.participants?.length === 0) {
+                        this.bracketContainer.innerHTML = `
+                            <div class="empty-bracket-message">
+                                <p>No participants have joined yet.</p>
+                                <p>The bracket will be displayed once participants join the tournament.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    // Render the bracket
+                    window.bracketsViewer.render({
+                        stages: [data.stage],
+                        matches: data.matches,
+                        matchGames: data.matchGames,
+                        participants: data.participants
+                    }, {
+                        customRoundName: (roundNumber) => `Round ${roundNumber}`,
+                        onMatchClick: this.isCreator && '<%= tournament.status %>' === 'active' ? 
+                            (match) => this.handleMatchClick(match) : null
+                    });
+                } catch (error) {
+                    console.error('Error updating bracket:', error);
+                    this.bracketContainer.innerHTML = `
+                        <div class="empty-bracket-message">
+                            <p>Error loading the bracket.</p>
+                            <p>Please try refreshing the page.</p>
+                        </div>
+                    `;
+                }
+            }
+
+            async handleMatchClick(match) {
+                if (!this.isCreator) return;
+                
+                const score1 = prompt(`Enter score for ${match.opponent1?.name || 'Player 1'}:`);
+                const score2 = prompt(`Enter score for ${match.opponent2?.name || 'Player 2'}:`);
+                
+                if (score1 !== null && score2 !== null) {
+                    try {
+                        await fetch(`/api/tournaments/${this.tournamentId}/matches/${match.id}/result`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                player1Score: parseInt(score1),
+                                player2Score: parseInt(score2)
+                            })
+                        });
+                        
+                        await this.updateBracket();
+                    } catch (error) {
+                        console.error('Error updating match:', error);
+                        alert('Failed to update match result');
+                    }
+                }
+            }
+
+            async addGenerateButton() {
+                const participants = JSON.parse('<%= JSON.stringify(tournament.participants) %>');
+                if (this.isCreator && '<%= tournament.status %>' === 'pending' && participants.length >= 2) {
+                    const generateButton = document.createElement('button');
+                    generateButton.className = 'btn btn-primary mb-4';
+                    generateButton.textContent = 'Generate Bracket';
+                    generateButton.onclick = async () => {
+                        try {
+                            await fetch(`/api/tournaments/${this.tournamentId}/generate-bracket`, {
+                                method: 'POST'
+                            });
+                            await this.updateBracket();
+                            location.reload(); // Refresh to update tournament status
+                        } catch (error) {
+                            console.error('Error generating bracket:', error);
+                            alert('Failed to generate bracket');
+                        }
+                    };
+                    document.querySelector('.tournament-header').appendChild(generateButton);
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const tournamentId = '<%= tournament._id %>';
+            const isCreator = '<%= user?._id %>' === '<%= tournament.creator._id %>';
+            
+            // Initialize tournament manager
+            const tournamentManager = new TournamentManager(tournamentId, isCreator);
+            
+            // Make tournament manager globally available
+            window.tournamentManager = tournamentManager;
+
+            // Initialize the bracket
+            await tournamentManager.updateBracket();
+            await tournamentManager.addGenerateButton();
+
+            // Initialize participant handling functions
+            window.joinTournament = async () => {
+                try {
+                    const response = await fetch(`/api/tournaments/${tournamentId}/participants`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (!response.ok) throw new Error('Failed to join tournament');
+                    location.reload();
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Failed to join tournament');
+                }
+            };
+
+            window.removeParticipant = async (participantId) => {
+                if (!confirm('Are you sure you want to remove this participant?')) return;
+
+                try {
+                    const response = await fetch(`/api/tournaments/${tournamentId}/participants/${participantId}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) throw new Error('Failed to remove participant');
+                    location.reload();
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Failed to remove participant');
+                }
+            };
+        });
+    </script>
+</body>
+</html>
