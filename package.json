@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon ."
+    "dev": "nodemon .",
+    "seed": "node seeders/userSeeder.js",
+    "seed:users": "node seeders/userSeeder.js",
+    "seed:tournaments": "node seeders/tournamentSeeder.js",
+    "seed:all": "node seeders/tournamentSeeder.js"
   },
   "keywords": [],
   "author": "",
@@ -12,8 +16,6 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "brackets-manager": "^1.6.4",
-    "brackets-memory-db": "^1.0.5",
-    "brackets-viewer": "^1.6.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "ejs": "^3.1.10",

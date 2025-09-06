@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Tournament - Tournament Maker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .participant-input-container {
+            position: relative;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1000;
+            display: none;
+            float: left;
+            min-width: 100%;
+            padding: 0.5rem 0;
+            margin: 0.125rem 0 0;
+            font-size: 0.875rem;
+            color: #495057;
+            text-align: left;
+            list-style: none;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid rgba(0,0,0,.15);
+            border-radius: 0.25rem;
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,.175);
+        }
+        
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .participant-badge {
+            max-width: 200px;
+        }
+        
+        .participant-badge .btn-close {
+            padding: 0.125rem 0.25rem;
+            margin: -0.125rem -0.25rem -0.125rem 0.25rem;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-trophy"></i> Tournament Maker
+            </a>
+            <div class="d-flex align-items-center text-white">
+                <img class="rounded-circle me-2" src="https://cdn.discordapp.com/avatars/<%= user.discordId %>/<%= user.avatar %>.webp?size=40" 
+                     alt="Avatar" width="30" height="30">
+                <%= user.username %>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title mb-0">
+                            <i class="bi bi-plus-circle"></i> Create New Tournament
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- Error Display -->
+                        <% if (typeof error !== 'undefined' && error) { %>
+                            <div class="alert alert-danger" role="alert">
+                                <i class="bi bi-exclamation-triangle"></i> <%= error %>
+                            </div>
+                        <% } %>
+
+                        <form method="POST" action="/dashboard/create-tournament">
+                            <!-- Basic Information -->
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Tournament Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" required
+                                       value="<%= typeof formData !== 'undefined' ? formData.name || '' : '' %>">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" name="description" rows="3" 
+                                          placeholder="Optional description for your tournament"><%= typeof formData !== 'undefined' ? formData.description || '' : '' %></textarea>
+                            </div>
+
+                            <!-- Tournament Type -->
+                            <div class="mb-3">
+                                <label for="type" class="form-label">Tournament Type *</label>
+                                <select class="form-select" id="type" name="type" required onchange="updateSettings()">
+                                    <option value="">Select tournament type</option>
+                                    <option value="single_elimination" <%= typeof formData !== 'undefined' && formData.type === 'single_elimination' ? 'selected' : '' %>>
+                                        Single Elimination
+                                    </option>
+                                    <option value="double_elimination" <%= typeof formData !== 'undefined' && formData.type === 'double_elimination' ? 'selected' : '' %>>
+                                        Double Elimination
+                                    </option>
+                                    <option value="round_robin" <%= typeof formData !== 'undefined' && formData.type === 'round_robin' ? 'selected' : '' %>>
+                                        Round Robin
+                                    </option>
+                                </select>
+                                <div class="form-text">
+                                    <small>
+                                        <strong>Single Elimination:</strong> Players are eliminated after one loss<br>
+                                        <strong>Double Elimination:</strong> Players must lose twice to be eliminated<br>
+                                        <strong>Round Robin:</strong> Everyone plays everyone else
+                                    </small>
+                                </div>
+                            </div>
+
+                            <!-- Participants -->
+                            <div class="mb-3">
+                                <label for="participantsList" class="form-label">Participants *</label>
+                                <div class="participant-input-container">
+                                    <!-- User Search Input -->
+                                    <div class="input-group mb-2">
+                                        <input type="text" class="form-control" id="userSearch" 
+                                               placeholder="Search for users to add...">
+                                        <button class="btn btn-outline-secondary" type="button" id="addManualParticipant">
+                                            <i class="bi bi-plus"></i> Add Manual
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Search Results Dropdown -->
+                                    <div id="userSearchResults" class="dropdown-menu w-100" style="max-height: 200px; overflow-y: auto;"></div>
+                                    
+                                    <!-- Selected Participants -->
+                                    <div id="selectedParticipants" class="border rounded p-2 mb-2" style="min-height: 100px;">
+                                        <div class="text-muted small mb-2">Selected participants:</div>
+                                        <div id="participantsList" class="d-flex flex-wrap gap-1"></div>
+                                    </div>
+                                    
+                                    <!-- Hidden textarea for form submission -->
+                                    <textarea class="form-control d-none" name="participantsList" id="participantsListInput" required></textarea>
+                                </div>
+                                <div class="form-text">Search for registered users or add manual participants. Minimum 2 participants for elimination tournaments, 3 for round robin.</div>
+                            </div>
+
+                            <!-- Tournament Settings -->
+                            <div class="card mb-3" id="settingsCard" style="display: none;">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">Advanced Settings</h6>
+                                </div>
+                                <div class="card-body">
+                                    <!-- Seed Ordering -->
+                                    <div class="mb-3">
+                                        <label for="seedOrdering" class="form-label">Seed Ordering</label>
+                                        <select class="form-select" id="seedOrdering" name="settings[seedOrdering]">
+                                            <option value="natural">Natural (1,2,3,4...)</option>
+                                            <option value="reverse">Reverse (4,3,2,1...)</option>
+                                            <option value="half_shift">Half Shift</option>
+                                            <option value="reverse_half_shift">Reverse Half Shift</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Elimination Settings -->
+                                    <div id="eliminationSettings" style="display: none;">
+                                        <div class="mb-3">
+                                            <label for="grandFinal" class="form-label">Grand Final</label>
+                                            <select class="form-select" id="grandFinal" name="settings[grandFinal]">
+                                                <option value="simple">Simple</option>
+                                                <option value="double">Double (winner must win twice if from loser bracket)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="consolationFinal" name="settings[consolationFinal]" value="true">
+                                            <label class="form-check-label" for="consolationFinal">
+                                                Include Consolation Final (3rd place match)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Submit Buttons -->
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Create Tournament
+                                </button>
+                                <a href="/dashboard" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Cancel
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedParticipants = [];
+        let searchTimeout;
+
+        function updateSettings() {
+            const type = document.getElementById('type').value;
+            const settingsCard = document.getElementById('settingsCard');
+            const eliminationSettings = document.getElementById('eliminationSettings');
+
+            if (type) {
+                settingsCard.style.display = 'block';
+                
+                if (type === 'single_elimination' || type === 'double_elimination') {
+                    eliminationSettings.style.display = 'block';
+                } else {
+                    eliminationSettings.style.display = 'none';
+                }
+            } else {
+                settingsCard.style.display = 'none';
+            }
+        }
+
+        // Initialize settings display if form has data
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSettings();
+            setupParticipantSearch();
+            
+            // Load existing participants if any
+            const existingParticipantsData = '<%= typeof formData !== "undefined" && formData.participantsList ? formData.participantsList.replace(/\n/g, "\\n").replace(/\r/g, "\\r") : "" %>';
+            if (existingParticipantsData) {
+                const existingParticipants = existingParticipantsData.split('\\n')
+                    .filter(name => name.trim().length > 0);
+                existingParticipants.forEach(name => {
+                    addParticipant({ name: name.trim() });
+                });
+            }
+        });
+
+        function setupParticipantSearch() {
+            const userSearch = document.getElementById('userSearch');
+            const searchResults = document.getElementById('userSearchResults');
+            const addManualButton = document.getElementById('addManualParticipant');
+
+            // User search functionality
+            userSearch.addEventListener('input', function() {
+                const query = this.value.trim();
+                
+                clearTimeout(searchTimeout);
+                
+                if (query.length < 2) {
+                    searchResults.style.display = 'none';
+                    return;
+                }
+
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+                        const users = await response.json();
+                        
+                        displaySearchResults(users);
+                    } catch (error) {
+                        console.error('Error searching users:', error);
+                    }
+                }, 300);
+            });
+
+            // Add manual participant
+            addManualButton.addEventListener('click', function() {
+                const query = userSearch.value.trim();
+                if (query.length > 0) {
+                    addParticipant({ name: query });
+                    userSearch.value = '';
+                    document.getElementById('userSearchResults').style.display = 'none';
+                }
+            });
+
+            // Close search results when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!userSearch.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        }
+
+        function displaySearchResults(users) {
+            const searchResults = document.getElementById('userSearchResults');
+            
+            if (users.length === 0) {
+                searchResults.innerHTML = '<div class="dropdown-item-text text-muted">No users found</div>';
+            } else {
+                searchResults.innerHTML = users.map(user => `
+                    <button class="dropdown-item d-flex align-items-center" type="button" 
+                            onclick="addParticipant({id: '${user.id}', name: '${user.name}', avatar: '${user.avatar || ''}'})">
+                        ${user.avatar ? `<img src="${user.avatar}" class="rounded-circle me-2" width="24" height="24">` : ''}
+                        <span>${user.name}</span>
+                    </button>
+                `).join('');
+            }
+            
+            searchResults.style.display = 'block';
+        }
+
+        function addParticipant(participant) {
+            // Check if participant already exists
+            const exists = selectedParticipants.some(p => 
+                p.name.toLowerCase() === participant.name.toLowerCase() || 
+                (participant.id && p.id === participant.id)
+            );
+            
+            if (exists) {
+                return;
+            }
+
+            selectedParticipants.push(participant);
+            updateParticipantsList();
+            updateParticipantsInput();
+            
+            // Clear search
+            document.getElementById('userSearch').value = '';
+            document.getElementById('userSearchResults').style.display = 'none';
+        }
+
+        function removeParticipant(index) {
+            selectedParticipants.splice(index, 1);
+            updateParticipantsList();
+            updateParticipantsInput();
+        }
+
+        function updateParticipantsList() {
+            const container = document.getElementById('participantsList');
+            
+            container.innerHTML = selectedParticipants.map((participant, index) => `
+                <span class="badge bg-primary d-flex align-items-center me-1 mb-1 participant-badge" style="font-size: 0.9em;">
+                    ${participant.avatar ? `<img src="${participant.avatar}" class="rounded-circle me-1" width="20" height="20">` : ''}
+                    <span class="me-1 text-truncate">${participant.name}</span>
+                    <button type="button" class="btn-close btn-close-white" style="font-size: 0.7em;" 
+                            onclick="removeParticipant(${index})" aria-label="Remove"></button>
+                </span>
+            `).join('');
+
+            // Update count display and validation styling
+            const count = selectedParticipants.length;
+            const typeSelect = document.getElementById('type');
+            const minParticipants = typeSelect.value === 'round_robin' ? 3 : 2;
+            
+            // Update container styling based on validation
+            const selectedContainer = document.getElementById('selectedParticipants');
+            if (count === 0) {
+                selectedContainer.style.borderColor = '#dc3545';
+            } else if (count >= minParticipants) {
+                selectedContainer.style.borderColor = '#28a745';
+            } else {
+                selectedContainer.style.borderColor = '#ffc107';
+            }
+
+            // Update count text
+            const countText = container.parentElement.querySelector('.text-muted');
+            if (countText) {
+                countText.textContent = `Selected participants (${count}):`;
+            }
+        }
+
+        function updateParticipantsInput() {
+            const input = document.getElementById('participantsListInput');
+            input.value = selectedParticipants.map(p => p.name).join('\n');
+        }
+
+        // Validate form before submission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (selectedParticipants.length === 0) {
+                e.preventDefault();
+                alert('Please add at least one participant');
+                return false;
+            }
+
+            const type = document.getElementById('type').value;
+            const minParticipants = type === 'round_robin' ? 3 : 2;
+            
+            if (selectedParticipants.length < minParticipants) {
+                e.preventDefault();
+                alert(`${type.replace('_', ' ')} tournaments require at least ${minParticipants} participants`);
+                return false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,93 +1,63 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <title>Tournament Brackets - Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/css/main.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/brackets-viewer@latest/dist/brackets-viewer.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/brackets-viewer@latest/dist/brackets-viewer.min.js"></script>
+    <meta charset="utf-8">
+
+    <link rel="stylesheet" href="/dist/brackets-viewer.min.css" />
+    <script type="text/javascript" src="/dist/brackets-viewer.min.js"></script>
+
+    <title>Demo with API</title>
+
+    <!-- You can choose a default theme or make you own. -->
+    <link rel="stylesheet" href="themes/light.css" />
+
 </head>
-<body>
-    <%- include('partials/nav') %>
-    
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <h1>Tournament Brackets Management</h1>
-                
-                <div class="my-4">
-                    <h2>Active Tournaments</h2>
-                    <div class="list-group">
-                        <% tournaments.filter(t => t.status === 'active').forEach(tournament => { %>
-                            <a href="/tournaments/<%= tournament._id %>" class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="mb-1"><%= tournament.name %></h5>
-                                    <small><%= new Date(tournament.startDate).toLocaleDateString() %></small>
-                                </div>
-                                <p class="mb-1">Participants: <%= tournament.participants.length %></p>
-                                <small>Created by: <%= tournament.creator.username %></small>
-                            </a>
-                        <% }); %>
-                    </div>
-                </div>
 
-                <div class="my-4">
-                    <h2>Pending Tournaments</h2>
-                    <div class="list-group">
-                        <% tournaments.filter(t => t.status === 'pending').forEach(tournament => { %>
-                            <a href="/tournaments/<%= tournament._id %>" class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="mb-1"><%= tournament.name %></h5>
-                                    <small><%= new Date(tournament.startDate).toLocaleDateString() %></small>
-                                </div>
-                                <p class="mb-1">Participants: <%= tournament.participants.length %></p>
-                                <% if (user && tournament.creator._id.toString() === user._id.toString()) { %>
-                                    <button class="btn btn-primary btn-sm mt-2" 
-                                            onclick="generateBracket('<%= tournament._id %>')">
-                                        Generate Bracket
-                                    </button>
-                                <% } %>
-                            </a>
-                        <% }); %>
-                    </div>
-                </div>
+<body style="background: gray;">
 
-                <div class="my-4">
-                    <h2>Completed Tournaments</h2>
-                    <div class="list-group">
-                        <% tournaments.filter(t => t.status === 'completed').forEach(tournament => { %>
-                            <a href="/tournaments/<%= tournament._id %>" class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="mb-1"><%= tournament.name %></h5>
-                                    <small>Completed: <%= new Date(tournament.endDate).toLocaleDateString() %></small>
-                                </div>
-                                <p class="mb-1">Winner: <%= tournament.winner ? tournament.winner.name : 'No winner yet' %></p>
-                            </a>
-                        <% }); %>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- This div will be used as the root for the library. It must be **perfectly** empty to prevent a FOUC. -->
+    <div id="example" class="brackets-viewer"></div>
 
-    <script>
-        async function generateBracket(tournamentId) {
-            try {
-                const response = await fetch(`/api/tournaments/${tournamentId}/generate-bracket`, {
-                    method: 'POST'
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to generate bracket');
-                }
-                
-                location.reload();
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to generate bracket. Please try again.');
-            }
+    <script type="module">
+        // Use EJS-passed data instead of fetching from API
+        const data = <%- JSON.stringify(bracketsData) %>;
+        console.log('Brackets data received:', data);
+
+        if (data.participant && data.participant.length > 0) {
+            window.bracketsViewer.setParticipantImages(data.participant.map(participant => ({
+                participantId: participant.id,
+                imageUrl: 'https://github.githubassets.com/pinned-octocat.svg',
+            })));
         }
+
+        await window.bracketsViewer.render({
+            stages: data.stage || [],
+            matches: data.match || [],
+            matchGames: data.match_game || [],
+            participants: data.participant || [],
+        }, {
+            customRoundName: (info, t) => {
+                if (info.fractionOfFinal === 1 / 2) {
+                    if (info.groupType === 'single-bracket') {
+                        // Single elimination
+                        return 'Semi Finals'
+                    } else {
+                        // Double elimination
+                        return `${t(`abbreviations.${info.groupType}`)} Semi Finals`
+                    }
+                }
+            },
+            onMatchClick: match => console.log('A match was clicked', match),
+            selector: '#example',
+            participantOriginPlacement: 'before',
+            separatedChildCountLabel: true,
+            showSlotsOrigin: true,
+            showLowerBracketSlotsOrigin: true,
+            highlightParticipantOnHover: true,
+        })
+
+        console.log('Render finished')
     </script>
 </body>
+
 </html>

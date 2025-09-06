@@ -21,6 +21,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Add this for form data parsing
 app.use(passport.initialize()); // use passport middleware
 app.use(passport.session()); // use passport session
 
@@ -28,10 +29,10 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use("/dashboard", require("./routes/dashboard.routes")); // Dashboard route
 app.use("/", require("./routes/index.routes")); 
-app.use("/api", require("./routes/api.routes")); // API routes
-app.use("/api/brackets", require("./routes/brackets.routes")); // Bracket routes
+app.use("/dashboard", require("./routes/dashboard.routes")); // Dashboard route
+app.use("/tournament", require("./routes/tournament.routes"));
+app.use("/api/users", require("./routes/user.routes")); // User API routes
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server is running on this port: ${PORT}`));
